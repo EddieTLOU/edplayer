@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>ED Player | Standalone Runtime</title>
+    <title>ED Player | Image Update</title>
     <style>
         body { 
             margin: 0; background: #000; overflow: hidden; height: 100vh; 
@@ -31,7 +31,8 @@
         CLICK OR DRAG .ED FILE HERE
     </div>
     <input type="file" id="fileInput" style="display:none" accept=".ed">
-    <div id="page-container"></div> </div>
+    <div id="page-container"></div> 
+</div>
 
 <script>
     const canvas = document.getElementById('render-canvas');
@@ -51,20 +52,17 @@
         reader.onload = (e) => render(e.target.result);
         reader.readAsText(file);
         
-        // Request Fullscreen on user interaction
         document.documentElement.requestFullscreen().catch(err => console.log(err));
         document.getElementById('drop-zone').style.display = 'none';
     }
 
-    // Helper: Safely generate structural layers out-of-order 
     function ensurePageExists(id) {
         if (!document.getElementById(id)) {
             const div = document.createElement('div');
             div.id = id;
             div.className = 'page';
-            div.style.background = '#000'; // Default fallback
+            div.style.background = '#000'; 
             
-            // Build the signature automatic backbone "BACK" button
             if (id !== 'app-root') {
                 const inAppBackBtn = document.createElement('button');
                 inAppBackBtn.innerText = "BACK";
@@ -118,7 +116,16 @@
                 'bottom-left': 'bottom:30px; left:30px;', 'bottom-right': 'bottom:30px; right:30px;'
             };
             
-            let startIndex = (type === 'button' && parts[1] === 'txt') ? 2 : 1;
+            let startIndex = 1;
+            let imgUrl = "";
+
+            if (type === 'button' && parts[1] === 'txt') startIndex = 2;
+            
+            if (type === 'img') {
+                imgUrl = parts[1];
+                startIndex = 2;
+                size = "200"; 
+            }
 
             for (let i = startIndex; i < parts.length; i++) {
                 const p = parts[i];
@@ -147,6 +154,12 @@
                 div.innerText = content.join(' ');
                 targetEl.appendChild(div);
             }
+            else if (type === 'img') {
+                const img = document.createElement('img');
+                img.src = imgUrl;
+                img.style.cssText = `position: absolute; ${pos} width: ${size}px; height: auto; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index:5;`;
+                targetEl.appendChild(img);
+            }
         },
         'txt': (args) => {
             ED_ENGINE['add'](`txt ${args}`);
@@ -155,14 +168,12 @@
 
     function render(code) {
         const container = document.getElementById('page-container');
-        container.innerHTML = ""; // Wipe previous files out of runtime memory
+        container.innerHTML = ""; 
         
-        // Start up fresh tracking environment
         targetPageId = 'app-root';
         ensurePageExists('app-root');
         document.getElementById('app-root').classList.add('active-page');
 
-        // Execute parsing loop
         code.split('\n').forEach(line => {
             const trimmed = line.trim();
             if(!trimmed) return;
