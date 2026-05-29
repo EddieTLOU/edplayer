@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>ED Player</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; height: 100vh; }
+        #render-canvas { width: 100vw; height: 100vh; position: relative; }
+        #drop-zone { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; color: #ff0000; font-family: sans-serif; border: 4px dashed #ff0000; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="render-canvas">
+    <div id="drop-zone" onclick="document.getElementById('fileInput').click()">
+        CLICK OR DRAG .ED FILE HERE
+    </div>
+    <input type="file" id="fileInput" style="display:none" accept=".ed">
+</div>
+
+<script>
+    const canvas = document.getElementById('render-canvas');
+    const input = document.getElementById('fileInput');
+
+    // Handle File Input
+    input.addEventListener('change', (e) => loadFile(e.target.files[0]));
+
+    // Handle Drag and Drop
+    canvas.ondragover = (e) => e.preventDefault();
+    canvas.ondrop = (e) => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); };
+
+    function loadFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => render(e.target.result);
+        reader.readAsText(file);
+        // Go Fullscreen
+        document.documentElement.requestFullscreen();
+        document.getElementById('drop-zone').style.display = 'none';
+    }
+
+    function render(code) {
+        const lines = code.split('\n');
+        lines.forEach(line => {
+            const spaceIdx = line.indexOf(' ');
+            if (spaceIdx > -1) {
+                const cmd = line.substring(0, spaceIdx);
+                const args = line.substring(spaceIdx + 1);
+                
+                if(cmd === 'gradient') {
+                    const parts = args.split(' ');
+                    const dirMap = { 'up': 'to top', 'down': 'to bottom', 'left': 'to left', 'right': 'to right' };
+                    canvas.style.background = `linear-gradient(${dirMap[parts[0]] || 'to bottom'}, ${parts.slice(1).join(', ')})`;
+                } 
+                
+                if(cmd === 'txt') {
+                    const parts = args.split(' ');
+                    let message = [], color = "white", pos = "absolute", size = "24";
+                    const posMap = { 
+                        'top-left': 'top:10px; left:10px;', 
+                        'middle': 'top:50%; left:50%; transform:translate(-50%,-50%);', 
+                        'bottom-right': 'bottom:10px; right:10px;' 
+                    };
+                    parts.forEach(part => {
+                        if(part.startsWith('c:')) color = part.split(':')[1];
+                        else if(part.startsWith('p:')) pos = posMap[part.split(':')[1]] || '';
+                        else if(part.startsWith('s:')) size = part.split(':')[1];
+                        else message.push(part);
+                    });
+                    const div = document.createElement('div');
+                    div.style.cssText = `position: absolute; color: ${color}; ${pos}; font-size: ${size}px;`;
+                    div.innerText = message.join(' ');
+                    canvas.appendChild(div);
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>
