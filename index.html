@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>ED Player | Image Update</title>
+    <title>ED Player | Image Button Update</title>
     <style>
         body { 
             margin: 0; background: #000; overflow: hidden; height: 100vh; 
@@ -66,7 +66,9 @@
             if (id !== 'app-root') {
                 const inAppBackBtn = document.createElement('button');
                 inAppBackBtn.innerText = "BACK";
-                inAppBackBtn.style.cssText = "position:absolute; top:30px; left:30px; padding:12px 24px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:12px; cursor:pointer; backdrop-filter:blur(10px); font-family:sans-serif; font-weight:bold; z-index:99;";
+                inAppBackBtn.style.cssText = "position:absolute; top:30px; left:30px; padding:12px 24px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:12px; cursor:pointer; backdrop-filter:blur(10px); font-family:sans-serif; font-weight:bold; z-index:99; transition: transform 0.2s ease;";
+                inAppBackBtn.onmouseover = () => inAppBackBtn.style.transform = 'scale(1.05)';
+                inAppBackBtn.onmouseout = () => inAppBackBtn.style.transform = 'scale(1)';
                 inAppBackBtn.onclick = () => {
                     document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
                     document.getElementById('app-root').classList.add('active-page');
@@ -103,7 +105,7 @@
         },
         'add': (args) => {
             const parts = args.split(' ');
-            const type = parts[0]; 
+            let commandType = parts[0]; 
             
             ensurePageExists(targetPageId);
             const targetEl = document.getElementById(targetPageId);
@@ -119,9 +121,15 @@
             let startIndex = 1;
             let imgUrl = "";
 
-            if (type === 'button' && parts[1] === 'txt') startIndex = 2;
-            
-            if (type === 'img') {
+            if (commandType === 'button' && parts[1] === 'txt') {
+                commandType = 'button-txt';
+                startIndex = 2;
+            } else if (commandType === 'img' && parts[1] === 'button') {
+                commandType = 'img-button';
+                imgUrl = parts[2];
+                startIndex = 3;
+                size = "150"; 
+            } else if (commandType === 'img') {
                 imgUrl = parts[1];
                 startIndex = 2;
                 size = "200"; 
@@ -136,29 +144,45 @@
                 else { content.push(p); } 
             }
 
-            if (type === 'button') {
+            if (commandType === 'button-txt') {
                 const btn = document.createElement('button');
                 btn.innerText = content.join(' ');
-                btn.style.cssText = `position: absolute; ${pos} padding: 18px 36px; background: ${color}; color: white; border-radius: 16px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; font-size:${size}px; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index:10;`;
+                btn.style.cssText = `position: absolute; ${pos} padding: 18px 36px; background: ${color}; color: white; border-radius: 16px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; font-size:${size}px; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index:10; transition: transform 0.2s ease;`;
+                btn.onmouseover = () => btn.style.transform = pos.includes('translate') ? 'translate(-50%, -50%) scale(1.05)' : 'scale(1.05)';
+                btn.onmouseout = () => btn.style.transform = pos.includes('translate') ? 'translate(-50%, -50%) scale(1)' : 'scale(1)';
                 btn.onclick = () => {
                     document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
-                    ensurePageExists(target);
+                    ensurePageExists(target); 
                     const targetPage = document.getElementById(target);
                     if(targetPage) targetPage.classList.add('active-page');
                 };
                 targetEl.appendChild(btn);
             } 
-            else if (type === 'txt') {
+            else if (commandType === 'txt') {
                 const div = document.createElement('div');
                 div.style.cssText = `position: absolute; ${pos} color: ${color}; font-size: ${size}px; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap; z-index:10;`;
                 div.innerText = content.join(' ');
                 targetEl.appendChild(div);
             }
-            else if (type === 'img') {
+            else if (commandType === 'img') {
                 const img = document.createElement('img');
                 img.src = imgUrl;
                 img.style.cssText = `position: absolute; ${pos} width: ${size}px; height: auto; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index:5;`;
                 targetEl.appendChild(img);
+            }
+            else if (commandType === 'img-button') {
+                const imgBtn = document.createElement('img');
+                imgBtn.src = imgUrl;
+                imgBtn.style.cssText = `position: absolute; ${pos} width: ${size}px; height: auto; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index:10; cursor:pointer; transition: transform 0.2s ease;`;
+                imgBtn.onmouseover = () => imgBtn.style.transform = pos.includes('translate') ? 'translate(-50%, -50%) scale(1.05)' : 'scale(1.05)';
+                imgBtn.onmouseout = () => imgBtn.style.transform = pos.includes('translate') ? 'translate(-50%, -50%) scale(1)' : 'scale(1)';
+                imgBtn.onclick = () => {
+                    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+                    ensurePageExists(target); 
+                    const targetPage = document.getElementById(target);
+                    if(targetPage) targetPage.classList.add('active-page');
+                };
+                targetEl.appendChild(imgBtn);
             }
         },
         'txt': (args) => {
