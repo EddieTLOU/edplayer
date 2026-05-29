@@ -1,11 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>ED Player</title>
+    <title>ED Player | Standalone Runtime</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; height: 100vh; }
+        body { 
+            margin: 0; background: #000; overflow: hidden; height: 100vh; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
         #render-canvas { width: 100vw; height: 100vh; position: relative; }
-        #drop-zone { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; color: #ff0000; font-family: sans-serif; border: 4px dashed #ff0000; cursor: pointer; }
+        
+        .page { 
+            display: none; height: 100vh; width: 100vw; 
+            position: absolute; top: 0; left: 0; 
+        }
+        .active-page { display: block; }
+
+        #drop-zone { 
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            display: flex; align-items: center; justify-content: center; 
+            color: #ff0000; font-size: 24px; font-weight: bold; letter-spacing: 2px;
+            border: 4px dashed #ff0000; cursor: pointer; z-index: 10000;
+            background: #000; box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
@@ -15,11 +31,12 @@
         CLICK OR DRAG .ED FILE HERE
     </div>
     <input type="file" id="fileInput" style="display:none" accept=".ed">
-</div>
+    <div id="page-container"></div> </div>
 
 <script>
     const canvas = document.getElementById('render-canvas');
     const input = document.getElementById('fileInput');
+    let targetPageId = 'app-root';
 
     // Handle File Input
     input.addEventListener('change', (e) => loadFile(e.target.files[0]));
@@ -29,48 +46,132 @@
     canvas.ondrop = (e) => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); };
 
     function loadFile(file) {
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = (e) => render(e.target.result);
         reader.readAsText(file);
-        // Go Fullscreen
-        document.documentElement.requestFullscreen();
+        
+        // Request Fullscreen on user interaction
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
         document.getElementById('drop-zone').style.display = 'none';
     }
 
-    function render(code) {
-        const lines = code.split('\n');
-        lines.forEach(line => {
-            const spaceIdx = line.indexOf(' ');
-            if (spaceIdx > -1) {
-                const cmd = line.substring(0, spaceIdx);
-                const args = line.substring(spaceIdx + 1);
-                
-                if(cmd === 'gradient') {
-                    const parts = args.split(' ');
-                    const dirMap = { 'up': 'to top', 'down': 'to bottom', 'left': 'to left', 'right': 'to right' };
-                    canvas.style.background = `linear-gradient(${dirMap[parts[0]] || 'to bottom'}, ${parts.slice(1).join(', ')})`;
-                } 
-                
-                if(cmd === 'txt') {
-                    const parts = args.split(' ');
-                    let message = [], color = "white", pos = "absolute", size = "24";
-                    const posMap = { 
-                        'top-left': 'top:10px; left:10px;', 
-                        'middle': 'top:50%; left:50%; transform:translate(-50%,-50%);', 
-                        'bottom-right': 'bottom:10px; right:10px;' 
-                    };
-                    parts.forEach(part => {
-                        if(part.startsWith('c:')) color = part.split(':')[1];
-                        else if(part.startsWith('p:')) pos = posMap[part.split(':')[1]] || '';
-                        else if(part.startsWith('s:')) size = part.split(':')[1];
-                        else message.push(part);
-                    });
-                    const div = document.createElement('div');
-                    div.style.cssText = `position: absolute; color: ${color}; ${pos}; font-size: ${size}px;`;
-                    div.innerText = message.join(' ');
-                    canvas.appendChild(div);
-                }
+    // Helper: Safely generate structural layers out-of-order 
+    function ensurePageExists(id) {
+        if (!document.getElementById(id)) {
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'page';
+            div.style.background = '#000'; // Default fallback
+            
+            // Build the signature automatic backbone "BACK" button
+            if (id !== 'app-root') {
+                const inAppBackBtn = document.createElement('button');
+                inAppBackBtn.innerText = "BACK";
+                inAppBackBtn.style.cssText = "position:absolute; top:30px; left:30px; padding:12px 24px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:12px; cursor:pointer; backdrop-filter:blur(10px); font-family:sans-serif; font-weight:bold; z-index:99;";
+                inAppBackBtn.onclick = () => {
+                    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+                    document.getElementById('app-root').classList.add('active-page');
+                };
+                div.appendChild(inAppBackBtn);
             }
+            document.getElementById('page-container').appendChild(div);
+        }
+    }
+
+    const ED_ENGINE = {
+        'use': (args) => {
+            const parts = args.split(' ');
+            if (parts[0] === 'page') {
+                ensurePageExists(parts[1]);
+                targetPageId = parts[1];
+            }
+        },
+        'new': (args) => {
+            const parts = args.split(' ');
+            if (parts[0] === 'page') {
+                ensurePageExists(parts[1]);
+                targetPageId = parts[1];
+            }
+        },
+        'gradient': (args) => {
+            const parts = args.split(' ');
+            const dirMap = { 'up': 'to top', 'down': 'to bottom', 'left': 'to left', 'right': 'to right' };
+            const grad = `linear-gradient(${dirMap[parts[0]] || 'to bottom'}, ${parts.slice(1).join(', ')})`;
+            
+            ensurePageExists(targetPageId);
+            const target = document.getElementById(targetPageId);
+            if(target) target.style.background = grad;
+        },
+        'add': (args) => {
+            const parts = args.split(' ');
+            const type = parts[0]; 
+            
+            ensurePageExists(targetPageId);
+            const targetEl = document.getElementById(targetPageId);
+            if (!targetEl) return;
+
+            let content = [], color = "white", pos = "absolute", target = "", size = "24";
+            const posMap = { 
+                'middle': 'top:50%; left:50%; transform:translate(-50%,-50%);',
+                'top-left': 'top:30px; left:30px;', 'top-right': 'top:30px; right:30px;',
+                'bottom-left': 'bottom:30px; left:30px;', 'bottom-right': 'bottom:30px; right:30px;'
+            };
+            
+            let startIndex = (type === 'button' && parts[1] === 'txt') ? 2 : 1;
+
+            for (let i = startIndex; i < parts.length; i++) {
+                const p = parts[i];
+                if (p.startsWith('c:')) { color = p.split(':')[1]; }
+                else if (p.startsWith('p:')) { pos = posMap[p.split(':')[1]] || ''; }
+                else if (p.startsWith('id:')) { target = p.split(':')[1]; }
+                else if (p.startsWith('s:')) { size = p.split(':')[1]; }
+                else { content.push(p); } 
+            }
+
+            if (type === 'button') {
+                const btn = document.createElement('button');
+                btn.innerText = content.join(' ');
+                btn.style.cssText = `position: absolute; ${pos} padding: 18px 36px; background: ${color}; color: white; border-radius: 16px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; font-size:${size}px; font-weight:600; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index:10;`;
+                btn.onclick = () => {
+                    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+                    ensurePageExists(target);
+                    const targetPage = document.getElementById(target);
+                    if(targetPage) targetPage.classList.add('active-page');
+                };
+                targetEl.appendChild(btn);
+            } 
+            else if (type === 'txt') {
+                const div = document.createElement('div');
+                div.style.cssText = `position: absolute; ${pos} color: ${color}; font-size: ${size}px; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.5); white-space: nowrap; z-index:10;`;
+                div.innerText = content.join(' ');
+                targetEl.appendChild(div);
+            }
+        },
+        'txt': (args) => {
+            ED_ENGINE['add'](`txt ${args}`);
+        }
+    };
+
+    function render(code) {
+        const container = document.getElementById('page-container');
+        container.innerHTML = ""; // Wipe previous files out of runtime memory
+        
+        // Start up fresh tracking environment
+        targetPageId = 'app-root';
+        ensurePageExists('app-root');
+        document.getElementById('app-root').classList.add('active-page');
+
+        // Execute parsing loop
+        code.split('\n').forEach(line => {
+            const trimmed = line.trim();
+            if(!trimmed) return;
+            const spaceIdx = trimmed.indexOf(' ');
+            if(spaceIdx === -1) return;
+            
+            const cmd = trimmed.substring(0, spaceIdx);
+            const args = trimmed.substring(spaceIdx + 1);
+            if(ED_ENGINE[cmd]) ED_ENGINE[cmd](args);
         });
     }
 </script>
